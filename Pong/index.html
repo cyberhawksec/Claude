@@ -1,0 +1,748 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<title>Voltpong</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap">
+<style>
+  :root{
+    --bg: #05070d;
+    --bg-2: #0a0e1a;
+    --line: #1c2438;
+    --cyan: #00f0ff;
+    --cyan-dim: #0a8a94;
+    --magenta: #ff2e6d;
+    --magenta-dim: #8a1338;
+    --amber: #ffd166;
+    --ink: #cfe0ff;
+    --ink-dim: #6b7a99;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Space Mono', ui-monospace, monospace;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 28px 16px;
+  }
+
+  .cabinet{
+    width: 100%;
+    max-width: 960px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .title-row{
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .title{
+    font-family: 'Press Start 2P', ui-monospace, monospace;
+    font-size: clamp(14px, 2.4vw, 20px);
+    color: var(--ink);
+    letter-spacing: 1px;
+    text-shadow: 0 0 12px rgba(0,240,255,0.35);
+  }
+  .title span{ color: var(--magenta); text-shadow: 0 0 12px rgba(255,46,109,0.45); }
+
+  .subtitle{
+    font-size: 12px;
+    color: var(--ink-dim);
+    letter-spacing: 0.5px;
+  }
+
+  .screen-wrap{
+    position: relative;
+    width: 100%;
+    aspect-ratio: 3 / 2;
+    background: radial-gradient(120% 140% at 50% 0%, #0c1120 0%, #05070d 70%);
+    border: 2px solid var(--line);
+    border-radius: 10px;
+    box-shadow:
+      0 0 0 1px rgba(0,240,255,0.06),
+      0 20px 60px -20px rgba(0,0,0,0.8),
+      inset 0 0 80px rgba(0,240,255,0.05);
+    overflow: hidden;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  canvas{
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+  }
+
+  .scanlines{
+    position: absolute; inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(0,0,0,0.0) 0px,
+      rgba(0,0,0,0.0) 2px,
+      rgba(0,0,0,0.18) 3px,
+      rgba(0,0,0,0.0) 4px
+    );
+    mix-blend-mode: multiply;
+    opacity: 0.5;
+  }
+
+  .vignette{
+    position: absolute; inset: 0;
+    pointer-events: none;
+    box-shadow: inset 0 0 120px 30px rgba(0,0,0,0.65);
+  }
+
+  .overlay{
+    position: absolute; inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    text-align: center;
+    padding: 24px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+  .overlay.show{ opacity: 1; }
+
+  .overlay .msg{
+    font-family: 'Press Start 2P', ui-monospace, monospace;
+    font-size: clamp(11px, 2vw, 16px);
+    color: var(--amber);
+    text-shadow: 0 0 14px rgba(255,209,102,0.5);
+    line-height: 1.7;
+  }
+  .overlay .hint{
+    font-size: 12px;
+    color: var(--ink-dim);
+    letter-spacing: 0.5px;
+  }
+
+  .panel{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 22px;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 18px;
+  }
+
+  .group{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .group label{
+    font-size: 10px;
+    color: var(--ink-dim);
+    letter-spacing: 1px;
+    margin-right: 2px;
+  }
+
+  .seg{
+    display: flex;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .seg button{
+    font-family: 'Space Mono', ui-monospace, monospace;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    background: transparent;
+    color: var(--ink-dim);
+    border: none;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .seg button + button{ border-left: 1px solid var(--line); }
+  .seg button:hover{ color: var(--ink); }
+  .seg button.active{
+    background: rgba(0,240,255,0.12);
+    color: var(--cyan);
+  }
+  .seg button.active.magenta{
+    background: rgba(255,46,109,0.14);
+    color: var(--magenta);
+  }
+  .seg button:disabled{
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+  .seg button:focus-visible{
+    outline: 2px solid var(--amber);
+    outline-offset: -2px;
+  }
+
+  .reset-btn{
+    font-family: 'Space Mono', ui-monospace, monospace;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    background: transparent;
+    color: var(--ink-dim);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .reset-btn:hover{ color: var(--amber); border-color: var(--amber); }
+  .reset-btn:focus-visible{ outline: 2px solid var(--amber); outline-offset: 2px; }
+  .btn-group{ display: flex; gap: 8px; }
+
+  .legend{
+    display: flex;
+    gap: 18px;
+    font-size: 11px;
+    color: var(--ink-dim);
+    flex-wrap: wrap;
+  }
+  .legend b{ color: var(--ink); }
+  .legend .p1 b{ color: var(--cyan); }
+  .legend .p2 b{ color: var(--magenta); }
+
+  @media (prefers-reduced-motion: reduce){
+    .overlay{ transition: none; }
+  }
+
+  @media (max-width: 560px){
+    body{ padding: 14px 10px; align-items: flex-start; }
+    .panel{ justify-content: center; padding: 12px; }
+    .legend{ justify-content: center; }
+    .seg button{
+      padding: 11px 14px;
+      font-size: 12px;
+      min-height: 44px;
+    }
+    .reset-btn{
+      padding: 11px 14px;
+      min-height: 44px;
+    }
+    .group{ flex: 1 1 auto; justify-content: center; }
+  }
+
+  @media (hover: none) and (pointer: coarse){
+    .overlay .hint{ font-size: 13px; }
+  }
+</style>
+
+<div class="cabinet">
+  <div class="title-row">
+    <div class="title">VOLT<span>PONG</span></div>
+    <div class="subtitle">first to <span id="target-label">11</span> wins</div>
+  </div>
+
+  <div class="screen-wrap">
+    <canvas id="game" width="900" height="600" role="img" aria-label="Pong game canvas"></canvas>
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+    <div class="overlay" id="overlay">
+      <div class="msg" id="overlay-msg">PRESS SPACE TO SERVE</div>
+      <div class="hint" id="overlay-hint">W / S moves left paddle</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="group">
+      <label>MODE</label>
+      <div class="seg" id="mode-seg">
+        <button data-mode="ai" class="active">VS AI</button>
+        <button data-mode="2p">2 PLAYER</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <label>AI</label>
+      <div class="seg" id="diff-seg">
+        <button data-diff="easy">EASY</button>
+        <button data-diff="medium" class="active magenta">MEDIUM</button>
+        <button data-diff="hard">HARD</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <label>WIN</label>
+      <div class="seg" id="win-seg">
+        <button data-win="11" class="active">11</button>
+        <button data-win="21">21</button>
+      </div>
+    </div>
+
+    <div class="btn-group">
+      <button class="reset-btn" id="pause-btn">PAUSE</button>
+      <button class="reset-btn" id="reset-btn">RESET MATCH</button>
+    </div>
+  </div>
+
+  <div class="legend" id="legend">
+    <span class="p1">P1 <b>W</b> / <b>S</b></span>
+    <span class="p2" id="p2-legend">P2 <b>AI</b></span>
+    <span id="serve-legend">SPACE serve / restart</span>
+    <span id="pause-legend">P / button pause</span>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var canvas = document.getElementById('game');
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height;
+
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+
+  var COLORS = {
+    bg: '#05070d',
+    trail: 'rgba(5,7,13,0.32)',
+    net: 'rgba(107,122,153,0.55)',
+    cyan: '#00f0ff',
+    magenta: '#ff2e6d',
+    amber: '#ffd166',
+    ink: '#cfe0ff'
+  };
+
+  var CONFIG = {
+    paddleW: 14,
+    paddleH: 108,
+    paddleMargin: 30,
+    paddleSpeed: 480,
+    ballR: 8,
+    baseSpeed: 380,
+    speedMul: 1.045,
+    maxSpeed: 920,
+    maxBounceAngle: 52 * Math.PI / 180
+  };
+
+  var AI_PROFILES = {
+    easy:   { maxSpeed: 230, error: 78, reactAtX: W * 0.32, updateMs: 420, predictive: false, missChance: 0.16 },
+    medium: { maxSpeed: 360, error: 34, reactAtX: W * 0.14, updateMs: 210, predictive: false, missChance: 0.05 },
+    hard:   { maxSpeed: 540, error: 8,  reactAtX: 0,        updateMs: 90,  predictive: true,  missChance: 0.0 }
+  };
+
+  var state = {
+    mode: 'ai',
+    difficulty: 'medium',
+    winScore: 11,
+    scoreL: 0,
+    scoreR: 0,
+    phase: 'serve',
+    serveDir: Math.random() < 0.5 ? -1 : 1,
+    paused: false,
+    winner: null
+  };
+
+  var left = { y: H/2 - CONFIG.paddleH/2, vy: 0 };
+  var right = { y: H/2 - CONFIG.paddleH/2, vy: 0 };
+
+  var ball = { x: W/2, y: H/2, vx: 0, vy: 0, speed: CONFIG.baseSpeed };
+
+  var ai = { targetY: H/2, nextUpdate: 0, skip: false };
+
+  var keys = {};
+  window.addEventListener('keydown', function(e){
+    if (['ArrowUp','ArrowDown',' ','Spacebar'].indexOf(e.key) !== -1) e.preventDefault();
+    keys[e.key] = true;
+    if (e.key === ' ' || e.key === 'Spacebar') handleServeOrRestart();
+    if (e.key === 'p' || e.key === 'P') togglePause();
+  });
+  window.addEventListener('keyup', function(e){ keys[e.key] = false; });
+
+  function handleServeOrRestart(){
+    if (state.phase === 'serve'){
+      launchBall();
+      state.phase = 'playing';
+      hideOverlay();
+    } else if (state.phase === 'gameover'){
+      state.scoreL = 0; state.scoreR = 0; state.winner = null;
+      state.serveDir = Math.random() < 0.5 ? -1 : 1;
+      resetPositions();
+      state.phase = 'serve';
+      showOverlay(serveMsg(), controlHint());
+    }
+  }
+
+  function togglePause(){
+    if (state.phase !== 'playing') return;
+    state.paused = !state.paused;
+    if (state.paused) showOverlay('PAUSED', isTouchDevice ? 'TAP PAUSE TO RESUME' : 'PRESS P TO RESUME');
+    else hideOverlay();
+  }
+
+  document.getElementById('pause-btn').addEventListener('click', togglePause);
+
+  function serveMsg(){ return isTouchDevice ? 'TAP TO SERVE' : 'PRESS SPACE TO SERVE'; }
+  function restartMsg(){ return isTouchDevice ? 'TAP TO PLAY AGAIN' : 'PRESS SPACE TO PLAY AGAIN'; }
+
+  function controlHint(){
+    if (isTouchDevice){
+      return state.mode === 'ai' ? 'Drag anywhere to move your paddle' : 'Drag your half of the screen to move';
+    }
+    return state.mode === 'ai' ? 'W / S moves your paddle' : 'P1: W / S    P2: ↑ / ↓';
+  }
+
+  function showOverlay(msg, hint){
+    document.getElementById('overlay-msg').textContent = msg;
+    document.getElementById('overlay-hint').textContent = hint || '';
+    document.getElementById('overlay').classList.add('show');
+  }
+  function hideOverlay(){
+    document.getElementById('overlay').classList.remove('show');
+  }
+
+  function resetPositions(){
+    left.y = H/2 - CONFIG.paddleH/2;
+    right.y = H/2 - CONFIG.paddleH/2;
+    ball.x = W/2; ball.y = H/2;
+    ball.vx = 0; ball.vy = 0;
+    ball.speed = CONFIG.baseSpeed;
+  }
+
+  function launchBall(){
+    ball.x = W/2; ball.y = H/2;
+    ball.speed = CONFIG.baseSpeed;
+    var angle = (Math.random() * 0.6 - 0.3);
+    ball.vx = state.serveDir * ball.speed * Math.cos(angle);
+    ball.vy = ball.speed * Math.sin(angle);
+  }
+
+  function updateModeUI(){
+    document.querySelectorAll('#mode-seg button').forEach(function(b){
+      b.classList.toggle('active', b.dataset.mode === state.mode);
+    });
+    document.querySelectorAll('#diff-seg button').forEach(function(b){
+      b.disabled = state.mode !== 'ai';
+      b.classList.toggle('active', b.dataset.diff === state.difficulty && state.mode === 'ai');
+      b.classList.toggle('magenta', b.dataset.diff === state.difficulty);
+    });
+    document.getElementById('p2-legend').innerHTML = state.mode === 'ai'
+      ? 'P2 <b>AI (' + state.difficulty.toUpperCase() + ')</b>'
+      : (isTouchDevice ? 'P2 <b>drag right half</b>' : 'P2 <b>↑</b> / <b>↓</b>');
+  }
+
+  function fullReset(){
+    state.scoreL = 0; state.scoreR = 0; state.winner = null;
+    state.serveDir = Math.random() < 0.5 ? -1 : 1;
+    resetPositions();
+    state.phase = 'serve';
+    state.paused = false;
+    showOverlay(serveMsg(), controlHint());
+  }
+
+  document.getElementById('mode-seg').addEventListener('click', function(e){
+    var btn = e.target.closest('button'); if (!btn) return;
+    state.mode = btn.dataset.mode;
+    updateModeUI();
+    fullReset();
+  });
+  document.getElementById('diff-seg').addEventListener('click', function(e){
+    var btn = e.target.closest('button'); if (!btn || btn.disabled) return;
+    state.difficulty = btn.dataset.diff;
+    updateModeUI();
+    fullReset();
+  });
+  document.getElementById('win-seg').addEventListener('click', function(e){
+    var btn = e.target.closest('button'); if (!btn) return;
+    state.winScore = parseInt(btn.dataset.win, 10);
+    document.querySelectorAll('#win-seg button').forEach(function(b){
+      b.classList.toggle('active', b === btn);
+    });
+    document.getElementById('target-label').textContent = state.winScore;
+    fullReset();
+  });
+  document.getElementById('reset-btn').addEventListener('click', fullReset);
+
+  function predictBallY(targetX){
+    if (ball.vx <= 0) return H/2;
+    var t = (targetX - ball.x) / ball.vx;
+    if (t < 0) return H/2;
+    var simY = ball.y + ball.vy * t;
+    var period = 2 * H;
+    var m = ((simY % period) + period) % period;
+    return m <= H ? m : period - m;
+  }
+
+  function updateAI(dt, now){
+    var p = AI_PROFILES[state.difficulty];
+    var rightPaddleX = W - CONFIG.paddleMargin - CONFIG.paddleW;
+
+    if (now >= ai.nextUpdate){
+      ai.nextUpdate = now + p.updateMs;
+      ai.skip = Math.random() < p.missChance;
+      if (!ai.skip){
+        var incoming = ball.vx > 0 && ball.x >= p.reactAtX;
+        if (incoming){
+          var predicted = p.predictive ? predictBallY(rightPaddleX) : ball.y;
+          ai.targetY = predicted + (Math.random() * 2 - 1) * p.error;
+        } else {
+          ai.targetY = H/2 + (Math.random() * 2 - 1) * (p.error * 0.5);
+        }
+      }
+    }
+
+    var center = right.y + CONFIG.paddleH/2;
+    var diff = ai.targetY - center;
+    var deadzone = 6;
+    if (Math.abs(diff) > deadzone){
+      var dir = diff > 0 ? 1 : -1;
+      right.y += dir * p.maxSpeed * dt;
+    }
+    right.y = clamp(right.y, 0, H - CONFIG.paddleH);
+  }
+
+  function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+
+  var touches = {};
+
+  function canvasPointFromClient(clientX, clientY){
+    var rect = canvas.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left) * (W / rect.width),
+      y: (clientY - rect.top) * (H / rect.height)
+    };
+  }
+
+  function touchSideFor(x){
+    return (state.mode === 'ai' || x < W / 2) ? 'left' : 'right';
+  }
+
+  function latestTouchY(side){
+    var y = null;
+    for (var id in touches){ if (touches[id].side === side) y = touches[id].y; }
+    return y;
+  }
+
+  function onTouchStart(e){
+    e.preventDefault();
+    var wasIdle = state.phase === 'serve' || state.phase === 'gameover';
+    for (var i = 0; i < e.changedTouches.length; i++){
+      var t = e.changedTouches[i];
+      var pt = canvasPointFromClient(t.clientX, t.clientY);
+      touches[t.identifier] = { side: touchSideFor(pt.x), y: pt.y };
+    }
+    if (wasIdle) handleServeOrRestart();
+  }
+  function onTouchMove(e){
+    e.preventDefault();
+    for (var i = 0; i < e.changedTouches.length; i++){
+      var t = e.changedTouches[i];
+      if (!touches[t.identifier]) continue;
+      var pt = canvasPointFromClient(t.clientX, t.clientY);
+      touches[t.identifier].y = pt.y;
+    }
+  }
+  function onTouchEnd(e){
+    for (var i = 0; i < e.changedTouches.length; i++){
+      delete touches[e.changedTouches[i].identifier];
+    }
+  }
+
+  canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+  canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+  canvas.addEventListener('touchend', onTouchEnd, { passive: false });
+  canvas.addEventListener('touchcancel', onTouchEnd, { passive: false });
+
+  function updatePaddles(dt){
+    var leftTouchY = latestTouchY('left');
+    if (leftTouchY !== null){
+      left.y = leftTouchY - CONFIG.paddleH / 2;
+    } else {
+      if (keys['w'] || keys['W']) left.y -= CONFIG.paddleSpeed * dt;
+      if (keys['s'] || keys['S']) left.y += CONFIG.paddleSpeed * dt;
+    }
+    left.y = clamp(left.y, 0, H - CONFIG.paddleH);
+
+    if (state.mode === '2p'){
+      var rightTouchY = latestTouchY('right');
+      if (rightTouchY !== null){
+        right.y = rightTouchY - CONFIG.paddleH / 2;
+      } else {
+        if (keys['ArrowUp']) right.y -= CONFIG.paddleSpeed * dt;
+        if (keys['ArrowDown']) right.y += CONFIG.paddleSpeed * dt;
+      }
+      right.y = clamp(right.y, 0, H - CONFIG.paddleH);
+    }
+  }
+
+  var hitFlash = 0;
+
+  function updateBall(dt){
+    ball.x += ball.vx * dt;
+    ball.y += ball.vy * dt;
+
+    if (ball.y - CONFIG.ballR < 0){
+      ball.y = CONFIG.ballR; ball.vy *= -1;
+    } else if (ball.y + CONFIG.ballR > H){
+      ball.y = H - CONFIG.ballR; ball.vy *= -1;
+    }
+
+    var leftX = CONFIG.paddleMargin;
+    if (ball.vx < 0 &&
+        ball.x - CONFIG.ballR <= leftX + CONFIG.paddleW &&
+        ball.x - CONFIG.ballR >= leftX - 4 &&
+        ball.y + CONFIG.ballR >= left.y &&
+        ball.y - CONFIG.ballR <= left.y + CONFIG.paddleH){
+      bounce(left, leftX + CONFIG.paddleW, 1);
+    }
+
+    var rightX = W - CONFIG.paddleMargin - CONFIG.paddleW;
+    if (ball.vx > 0 &&
+        ball.x + CONFIG.ballR >= rightX &&
+        ball.x + CONFIG.ballR <= rightX + CONFIG.paddleW + 4 &&
+        ball.y + CONFIG.ballR >= right.y &&
+        ball.y - CONFIG.ballR <= right.y + CONFIG.paddleH){
+      bounce(right, rightX, -1);
+    }
+
+    if (ball.x + CONFIG.ballR < 0){
+      score('right');
+    } else if (ball.x - CONFIG.ballR > W){
+      score('left');
+    }
+  }
+
+  function bounce(paddle, edgeX, dir){
+    var relative = (ball.y - (paddle.y + CONFIG.paddleH/2)) / (CONFIG.paddleH/2);
+    relative = clamp(relative, -1, 1);
+    var angle = relative * CONFIG.maxBounceAngle;
+    ball.speed = Math.min(ball.speed * CONFIG.speedMul, CONFIG.maxSpeed);
+    ball.vx = dir * ball.speed * Math.cos(angle);
+    ball.vy = ball.speed * Math.sin(angle);
+    ball.x = edgeX + dir * (CONFIG.ballR + 1);
+    hitFlash = 1;
+  }
+
+  function score(side){
+    if (side === 'left'){ state.scoreL++; state.serveDir = -1; }
+    else { state.scoreR++; state.serveDir = 1; }
+
+    if (state.scoreL >= state.winScore || state.scoreR >= state.winScore){
+      state.winner = state.scoreL > state.scoreR ? 'PLAYER 1' : (state.mode === 'ai' ? 'THE AI' : 'PLAYER 2');
+      state.phase = 'gameover';
+      resetPositions();
+      showOverlay(state.winner + ' WINS', restartMsg());
+    } else {
+      resetPositions();
+      state.phase = 'serve';
+      showOverlay(serveMsg(), controlHint());
+    }
+  }
+
+  function drawNet(){
+    ctx.save();
+    ctx.strokeStyle = COLORS.net;
+    ctx.lineWidth = 3;
+    ctx.setLineDash([10, 14]);
+    ctx.beginPath();
+    ctx.moveTo(W/2, 0);
+    ctx.lineTo(W/2, H);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawPaddle(x, y, color){
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 16;
+    ctx.fillRect(x, y, CONFIG.paddleW, CONFIG.paddleH);
+    ctx.restore();
+  }
+
+  function drawBall(){
+    ctx.save();
+    var glow = 18 + hitFlash * 14;
+    ctx.fillStyle = COLORS.amber;
+    ctx.shadowColor = COLORS.amber;
+    ctx.shadowBlur = glow;
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, CONFIG.ballR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawScore(){
+    ctx.save();
+    ctx.font = "28px 'Press Start 2P', ui-monospace, monospace";
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = COLORS.cyan;
+    ctx.shadowColor = COLORS.cyan;
+    ctx.shadowBlur = 10;
+    ctx.fillText(String(state.scoreL), W/2 - 90, 34);
+    ctx.fillStyle = COLORS.magenta;
+    ctx.shadowColor = COLORS.magenta;
+    ctx.fillText(String(state.scoreR), W/2 + 90, 34);
+    ctx.restore();
+  }
+
+  function render(dt){
+    ctx.fillStyle = reduceMotion ? COLORS.bg : COLORS.trail;
+    ctx.fillRect(0, 0, W, H);
+
+    drawNet();
+    drawScore();
+    drawPaddle(CONFIG.paddleMargin, left.y, COLORS.cyan);
+    drawPaddle(W - CONFIG.paddleMargin - CONFIG.paddleW, right.y, COLORS.magenta);
+    drawBall();
+
+    if (hitFlash > 0) hitFlash = Math.max(0, hitFlash - dt * 4);
+  }
+
+  var lastTime = null;
+  function frame(now){
+    if (lastTime === null) lastTime = now;
+    var dt = Math.min((now - lastTime) / 1000, 0.033);
+    lastTime = now;
+
+    updatePaddles(dt);
+
+    if (state.phase === 'playing' && !state.paused){
+      if (state.mode === 'ai') updateAI(dt, now);
+      updateBall(dt);
+    } else if (state.mode === 'ai'){
+      updateAI(dt, now);
+    }
+
+    render(dt);
+    requestAnimationFrame(frame);
+  }
+
+  if (isTouchDevice){
+    document.querySelector('.legend .p1').innerHTML = 'P1 <b>drag left half</b>';
+    document.getElementById('serve-legend').textContent = 'Tap screen to serve / restart';
+    document.getElementById('pause-legend').textContent = 'PAUSE button to pause';
+  }
+
+  ctx.fillStyle = COLORS.bg;
+  ctx.fillRect(0, 0, W, H);
+  updateModeUI();
+  showOverlay(serveMsg(), controlHint());
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>
